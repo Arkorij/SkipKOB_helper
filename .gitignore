@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Flet / build artifacts
+build/
+dist/
+*.spec
+
+# App data & logs (хранятся в %APPDATA%, но на всякий случай)
+data.json
+*.log
+
+# Scratch / личные тестовые данные
+Test shed/
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
