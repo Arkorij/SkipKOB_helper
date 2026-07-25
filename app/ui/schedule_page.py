@@ -95,13 +95,25 @@ class SchedulePage:
             bgcolor=T.SURFACE,
         )
 
-        self.days_list = ft.ListView(
+        self.days_list = self._new_list()
+        # смена недели — плавным проявлением, а не рывком
+        self.list_box = ft.AnimatedSwitcher(
+            content=self.days_list,
+            transition=ft.AnimatedSwitcherTransition.FADE,
+            duration=200,
+            reverse_duration=120,
+            switch_in_curve=ft.AnimationCurve.EASE_OUT,
+            expand=True,
+        )
+        self.view = ft.Column([header, self.list_box], expand=True, spacing=0)
+
+    def _new_list(self):
+        return ft.ListView(
             expand=True,
             spacing=12,
             padding=ft.padding.all(14),
             on_scroll=self._on_scroll,
         )
-        self.view = ft.Column([header, self.days_list], expand=True, spacing=0)
 
     # --- неделя -----------------------------------------------------------
     def _ensure_week(self):
@@ -224,11 +236,14 @@ class SchedulePage:
 
         data = self.app.data
         dates = cal.dates_for_week(data["academic_year_start"], data["breaks"], n)
+        # новый список — чтобы AnimatedSwitcher плавно сменил неделю
+        self.days_list = self._new_list()
         self.days_list.controls = (
             [self._edge_hint(up=True)]
             + [self._day_card(d, n) for d in dates]
             + [self._edge_hint(up=False)]
         )
+        self.list_box.content = self.days_list
         self._last_switch = time.time()   # не срабатывать сразу после перерисовки
         self._safe_update()
         # встать сразу под верхним хвостом, чтобы он не считался краем

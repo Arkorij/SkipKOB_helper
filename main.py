@@ -30,11 +30,11 @@ class App:
             # названия и так есть в нижней панели. tab_content использовать
             # нельзя — во Flet 0.28 он сбивает соответствие вкладки и её
             # содержимого (вкладка 1 показывала страницу 2).
-            return ft.Tab(text=" ", content=content, height=18)
+            return ft.Tab(text=" ", content=content, height=6)
 
         self.tabs = ft.Tabs(
             selected_index=0,
-            animation_duration=250,
+            animation_duration=160,
             indicator_color=T.ACCENT,
             indicator_thickness=3,
             indicator_padding=ft.padding.symmetric(horizontal=24),
