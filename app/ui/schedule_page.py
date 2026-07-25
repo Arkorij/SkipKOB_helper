@@ -24,6 +24,9 @@ from . import theme as T
 from . import widgets as W
 
 
+OVERSCROLL_TRIGGER = 40.0   # накопленное перетягивание за край для смены недели
+
+
 def _status_color(pair: dict, key: str) -> str:
     table = CONS_STATUS_BY_KEY if pair_is_consultation(pair) else STATUS_BY_KEY
     st = table.get(key)
@@ -35,37 +38,45 @@ class SchedulePage:
         self.app = app
         self.week: int | None = None
         self._last_switch = 0.0
+        self._over_accum = 0.0
 
         self.week_label = ft.Text("", size=T.FS_SECTION, weight=ft.FontWeight.BOLD, color=T.TEXT)
         self.parity_badge = ft.Container(
             padding=ft.padding.symmetric(horizontal=10, vertical=4),
             border_radius=20,
         )
-        self.week_dropdown = ft.Dropdown(
-            width=82,
-            text_size=T.FS_LABEL,
-            dense=True,
-            border_color=T.BORDER,
-            options=[ft.dropdown.Option(str(n)) for n in range(1, TOTAL_WEEKS + 1)],
-            on_change=self._on_pick_week,
+        # Компактная кнопка выбора недели (вместо Dropdown: его popup рисуется
+        # поверх всего экрана и залезает под строку состояния и кнопки навигации).
+        self.week_btn_text = ft.Text("", size=T.FS_LABEL, weight=ft.FontWeight.BOLD, color=T.TEXT)
+        self.week_btn = ft.Container(
+            content=ft.Row(
+                [self.week_btn_text, ft.Icon(ft.Icons.ARROW_DROP_DOWN, size=20, color=T.TEXT_DIM)],
+                spacing=0, tight=True, vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            padding=ft.padding.only(left=12, right=4, top=8, bottom=8),
+            border=ft.border.all(1, T.BORDER),
+            border_radius=10,
+            tooltip="Выбрать неделю",
+            on_click=self._open_week_picker,
         )
         header = ft.Container(
             content=ft.Column(
                 [
                     ft.Row(
                         [
-                            ft.Row([self.week_label, self.parity_badge], spacing=8, expand=True,
+                            ft.Row([self.week_label, self.parity_badge], spacing=8,
                                    vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                            self.week_dropdown,
+                            ft.Container(expand=True),
+                            self.week_btn,
                             ft.IconButton(
                                 ft.Icons.KEYBOARD_ARROW_UP,
-                                tooltip="Прошлая неделя (свайп вверх)",
+                                tooltip="Прошлая неделя",
                                 icon_color=T.TEXT_DIM, icon_size=22,
                                 on_click=lambda e: self._change_week(-1),
                             ),
                             ft.IconButton(
                                 ft.Icons.KEYBOARD_ARROW_DOWN,
-                                tooltip="Следующая неделя (свайп вниз)",
+                                tooltip="Следующая неделя",
                                 icon_color=T.TEXT_DIM, icon_size=22,
                                 on_click=lambda e: self._change_week(1),
                             ),
@@ -73,11 +84,12 @@ class SchedulePage:
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=2,
                     ),
-                    ft.Text("свайп ↑↓ — смена недели", size=T.FS_HINT, color=T.TEXT_DIM),
+                    ft.Text("свайп вбок или ↑↓ у края — смена недели",
+                            size=T.FS_HINT, color=T.TEXT_DIM),
                 ],
                 spacing=2,
             ),
-            padding=ft.padding.only(left=14, right=6, top=10, bottom=10),
+            padding=ft.padding.only(left=14, right=4, top=10, bottom=10),
             bgcolor=T.SURFACE,
         )
 
@@ -87,7 +99,14 @@ class SchedulePage:
             padding=ft.padding.all(14),
             on_scroll=self._on_scroll,
         )
-        self.view = ft.Column([header, self.days_list], expand=True, spacing=0)
+        # Горизонтальный свайп не конфликтует с вертикальной прокруткой списка,
+        # поэтому срабатывает надёжно; вертикальный overscroll оставлен как доп. способ.
+        swipe_area = ft.GestureDetector(
+            content=self.days_list,
+            on_horizontal_drag_end=self._on_h_swipe,
+            expand=True,
+        )
+        self.view = ft.Column([header, swipe_area], expand=True, spacing=0)
 
     # --- неделя -----------------------------------------------------------
     def _ensure_week(self):
@@ -109,27 +128,85 @@ class SchedulePage:
         self._save_week()
         self.refresh()
 
-    def _on_pick_week(self, e):
-        try:
-            self.week = int(e.control.value)
-        except (TypeError, ValueError):
-            return
-        self._save_week()
-        self.refresh()
-
-    def _on_scroll(self, e):
-        if getattr(e, "event_type", None) != "overscroll":
+    def _on_h_swipe(self, e):
+        """Свайп вбок: влево — следующая неделя, вправо — прошлая."""
+        v = getattr(e, "primary_velocity", None) or 0
+        if abs(v) < 150:
             return
         now = time.time()
-        if now - self._last_switch < 0.6:
+        if now - self._last_switch < 0.5:
+            return
+        self._last_switch = now
+        self._change_week(1 if v < 0 else -1)
+
+    def _on_scroll(self, e):
+        """Вертикальный overscroll: тянем за край списка — меняем неделю.
+
+        События overscroll приходят маленькими порциями, поэтому копим сумму
+        в одном направлении и срабатываем при заметном перетягивании.
+        """
+        etype = getattr(e, "event_type", None)
+        if etype != "overscroll":
+            if etype in ("start", "user"):
+                self._over_accum = 0.0
+            return
+        now = time.time()
+        if now - self._last_switch < 0.8:
             return
         ov = getattr(e, "overscroll", 0) or 0
-        if ov < -6:        # перетянули за верх -> прошлая неделя
+        if self._over_accum * ov < 0:     # сменилось направление — копим заново
+            self._over_accum = 0.0
+        self._over_accum += ov
+        if self._over_accum < -OVERSCROLL_TRIGGER:    # за верх -> прошлая неделя
             self._last_switch = now
+            self._over_accum = 0.0
             self._change_week(-1)
-        elif ov > 6:       # перетянули за низ -> следующая неделя
+        elif self._over_accum > OVERSCROLL_TRIGGER:   # за низ -> следующая неделя
             self._last_switch = now
+            self._over_accum = 0.0
             self._change_week(1)
+
+    # --- выбор недели диалогом --------------------------------------------
+    def _open_week_picker(self, e):
+        page = self.app.page
+
+        def pick(n):
+            self.week = n
+            self._save_week()
+            page.close(dlg)
+            self.refresh()
+
+        cells = []
+        for n in range(1, TOTAL_WEEKS + 1):
+            sel = n == self.week
+            cells.append(ft.Container(
+                content=ft.Text(
+                    str(n), size=T.FS_BODY,
+                    weight=ft.FontWeight.BOLD if sel else ft.FontWeight.NORMAL,
+                    color="#10101A" if sel else T.TEXT,
+                ),
+                width=54, height=46,
+                alignment=ft.alignment.center,
+                bgcolor=T.ACCENT if sel else T.SURFACE_2,
+                border_radius=10,
+                on_click=lambda e, k=n: pick(k),
+            ))
+
+        dlg = ft.AlertDialog(
+            modal=True,
+            bgcolor=T.SURFACE,
+            title=ft.Text("Выбор недели", color=T.TEXT, size=T.FS_SECTION),
+            content=ft.Container(
+                content=ft.Column(
+                    [ft.Row(cells, wrap=True, spacing=8, run_spacing=8)],
+                    scroll=ft.ScrollMode.AUTO,
+                    tight=True,
+                ),
+                width=320, height=360,
+            ),
+            actions=[ft.TextButton("Отмена", on_click=lambda e: page.close(dlg))],
+        )
+        page.open(dlg)
 
     # --- построение -------------------------------------------------------
     def build(self):
@@ -145,7 +222,7 @@ class SchedulePage:
             cal.parity_label(n), size=T.FS_CHIP, weight=ft.FontWeight.BOLD, color="#10101A",
         )
         self.parity_badge.bgcolor = T.color("AMBER_300") if odd else T.color("TEAL_300")
-        self.week_dropdown.value = str(n)
+        self.week_btn_text.value = str(n)
 
         data = self.app.data
         dates = cal.dates_for_week(data["academic_year_start"], data["breaks"], n)
