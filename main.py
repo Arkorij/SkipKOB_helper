@@ -19,28 +19,38 @@ class App:
         self.pages = [self.stats_page, self.schedule_page, self.settings_page]
 
         self.current = 0
+        self._syncing = False
 
-        # Вкладки «Статистика» и «Расписание» лежат рядом и ездят по горизонтали,
-        # как страницы на рельсах. Настройки открываются без анимации.
-        anim = ft.Animation(280, ft.AnimationCurve.EASE_OUT)
-        self.slide_stats = ft.Container(
-            content=self.stats_page.build(), expand=True,
-            offset=ft.Offset(0, 0), animate_offset=anim,
-        )
-        self.slide_sched = ft.Container(
-            content=self.schedule_page.build(), expand=True,
-            offset=ft.Offset(1, 0), animate_offset=anim,
-        )
-        self.slider = ft.GestureDetector(
-            content=ft.Stack(
-                [self.slide_stats, self.slide_sched],
-                expand=True, clip_behavior=ft.ClipBehavior.HARD_EDGE,
-            ),
-            on_horizontal_drag_end=self._on_swipe,
+        # Свайп между страницами — нативный (Flutter TabBarView): контент едет
+        # за пальцем в реальном времени, можно остановиться на середине.
+        # Обработка жеста на стороне Python дала бы заметную задержку.
+        # Полоса вкладок сведена к тонкому индикатору страницы сверху.
+        def slim_tab(content):
+            # Подпись пустая: полоса вкладок работает как индикатор страницы,
+            # названия и так есть в нижней панели. tab_content использовать
+            # нельзя — во Flet 0.28 он сбивает соответствие вкладки и её
+            # содержимого (вкладка 1 показывала страницу 2).
+            return ft.Tab(text=" ", content=content, height=18)
+
+        self.tabs = ft.Tabs(
+            selected_index=0,
+            animation_duration=250,
+            indicator_color=T.ACCENT,
+            indicator_thickness=3,
+            indicator_padding=ft.padding.symmetric(horizontal=24),
+            divider_color="#00000000",
+            divider_height=0,
+            label_padding=ft.padding.all(0),
+            on_change=self._on_tabs,
             expand=True,
+            tabs=[
+                slim_tab(self.stats_page.build()),
+                slim_tab(self.schedule_page.build()),
+                slim_tab(self.settings_page.build()),
+            ],
         )
 
-        self.body = ft.Container(expand=True, bgcolor=T.BG)
+        self.body = ft.Container(content=self.tabs, expand=True, bgcolor=T.BG)
         # SafeArea — чтобы контент не заезжал под строку состояния/вырез на телефоне
         self.safe_body = ft.SafeArea(content=self.body, expand=True, bottom=False)
 
@@ -64,32 +74,30 @@ class App:
 
     # --- навигация --------------------------------------------------------
     def _on_nav(self, e):
+        """Нажатие в нижней панели — переводим Tabs на нужную страницу."""
+        if self._syncing:
+            return
         self._show(self.nav.selected_index)
 
-    def _on_swipe(self, e):
-        """Свайп вбок между «Статистикой» и «Расписанием».
-
-        Порог по скорости высокий, чтобы вертикальная прокрутка меню
-        случайно не переключала вкладку.
-        """
-        v = getattr(e, "primary_velocity", None) or 0
-        if abs(v) < 400:
+    def _on_tabs(self, e):
+        """Смена страницы свайпом — подсвечиваем её в нижней панели."""
+        if self._syncing:
             return
-        if v < 0 and self.current == 0:      # влево — к расписанию
-            self._show(1)
-        elif v > 0 and self.current == 1:    # вправо — к статистике
-            self._show(0)
+        index = self.tabs.selected_index or 0
+        self.current = index
+        self._syncing = True
+        self.nav.selected_index = index
+        self._syncing = False
+        self.pages[index].refresh()
+        self.page.update()
 
     def _show(self, index: int):
-        if index in (0, 1):
-            self.body.content = self.slider
-            self.slide_stats.offset = ft.Offset(0 if index == 0 else -1, 0)
-            self.slide_sched.offset = ft.Offset(1 if index == 0 else 0, 0)
-            self.pages[index].refresh()
-        else:
-            self.body.content = self.settings_page.build()
         self.current = index
+        self._syncing = True
+        self.tabs.selected_index = index
         self.nav.selected_index = index
+        self._syncing = False
+        self.pages[index].refresh()
         self.page.update()
 
     # --- сервисы для страниц ---------------------------------------------

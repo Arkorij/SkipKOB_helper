@@ -24,7 +24,8 @@ from . import theme as T
 from . import widgets as W
 
 
-OVERSCROLL_TRIGGER = 55.0   # накопленное перетягивание за край для смены недели
+EDGE_ZONE = 120        # высота зон-«хвостов» сверху и снизу списка
+EDGE_TRIGGER = 6       # насколько близко к самому краю нужно дотянуть
 
 
 def _status_color(pair: dict, key: str) -> str:
@@ -123,33 +124,45 @@ class SchedulePage:
         self.refresh()
 
     def _on_scroll(self, e):
-        """Вертикальный overscroll у края списка — смена недели.
+        """Смена недели протягиванием списка за край.
 
-        События overscroll приходят маленькими порциями, поэтому копим сумму.
-        Сбрасываем накопленное только по паузе: во время перетягивания Flet
-        присылает и обычные события прокрутки вперемешку, и сброс по ним
-        обнулял бы счётчик, из-за чего смена недели не срабатывала.
+        Сверху и снизу списка добавлены зоны-«хвосты» с подсказками. Список
+        после отрисовки стоит сразу под верхним хвостом, поэтому дотянуть до
+        самого края можно только намеренно — это и считается сменой недели.
+        Работает на обычных событиях прокрутки: событий overscroll от Flet
+        на Android дождаться не удалось.
         """
-        if getattr(e, "event_type", None) != "overscroll":
+        px = getattr(e, "pixels", None)
+        maxe = getattr(e, "max_scroll_extent", None)
+        if px is None or maxe is None:
             return
         now = time.time()
-        if now - self._last_over > 0.35:      # пауза — начинаем копить заново
-            self._over_accum = 0.0
-        self._last_over = now
-        ov = getattr(e, "overscroll", 0) or 0
-        if self._over_accum * ov < 0:         # направление сменилось
-            self._over_accum = 0.0
-        self._over_accum += ov
-        if now - self._last_switch < 0.7:
+        if now - self._last_switch < 1.0:     # пауза после смены/перерисовки
             return
-        if self._over_accum <= -OVERSCROLL_TRIGGER:   # за верх -> прошлая неделя
+        if maxe > EDGE_ZONE and px >= maxe - EDGE_TRIGGER:
             self._last_switch = now
-            self._over_accum = 0.0
-            self._change_week(-1)
-        elif self._over_accum >= OVERSCROLL_TRIGGER:  # за низ -> следующая неделя
-            self._last_switch = now
-            self._over_accum = 0.0
             self._change_week(1)
+        elif px <= EDGE_TRIGGER:
+            self._last_switch = now
+            self._change_week(-1)
+
+    def _edge_hint(self, up: bool):
+        """Зона-«хвост» с подсказкой у края списка."""
+        return ft.Container(
+            height=EDGE_ZONE,
+            alignment=ft.alignment.center,
+            content=ft.Column(
+                [
+                    ft.Icon(ft.Icons.KEYBOARD_ARROW_UP if up else ft.Icons.KEYBOARD_ARROW_DOWN,
+                            size=22, color=T.TEXT_DIM),
+                    ft.Text("тяни дальше — прошлая неделя" if up else "тяни дальше — следующая неделя",
+                            size=T.FS_HINT, color=T.TEXT_DIM),
+                ],
+                spacing=0,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
+        )
 
     # --- выбор недели диалогом --------------------------------------------
     def _open_week_picker(self, e):
@@ -211,8 +224,18 @@ class SchedulePage:
 
         data = self.app.data
         dates = cal.dates_for_week(data["academic_year_start"], data["breaks"], n)
-        self.days_list.controls = [self._day_card(d, n) for d in dates]
+        self.days_list.controls = (
+            [self._edge_hint(up=True)]
+            + [self._day_card(d, n) for d in dates]
+            + [self._edge_hint(up=False)]
+        )
+        self._last_switch = time.time()   # не срабатывать сразу после перерисовки
         self._safe_update()
+        # встать сразу под верхним хвостом, чтобы он не считался краем
+        try:
+            self.days_list.scroll_to(offset=EDGE_ZONE, duration=1)
+        except Exception:
+            pass
 
     def _safe_update(self):
         try:
