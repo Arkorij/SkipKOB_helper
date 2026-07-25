@@ -45,6 +45,7 @@ def default_data() -> dict:
         "overrides": {},
         "marks": {},
         "last_week": None,
+        "swipe_pages": False,   # переключение страниц свайпом — по умолчанию выключено
     }
 
 
@@ -77,6 +78,8 @@ def _normalize(data: dict) -> dict:
         out["marks"] = data["marks"]
     if isinstance(data.get("last_week"), int):
         out["last_week"] = data["last_week"]
+    if isinstance(data.get("swipe_pages"), bool):
+        out["swipe_pages"] = data["swipe_pages"]
     return out
 
 

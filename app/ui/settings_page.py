@@ -46,6 +46,7 @@ class SettingsPage:
             self._year_section(),
             self._breaks_section(),
             self._schedule_section(),
+            self._interface_section(),
             self._io_section(),
             self._danger_section(),
         ]
@@ -200,6 +201,33 @@ class SettingsPage:
                 odd_col,
                 even_col,
                 W.primary_button("Сохранить расписание", save, icon=ft.Icons.SAVE_OUTLINED),
+            ], spacing=10),
+            border=ft.border.all(1, T.BORDER),
+        )
+
+    # --- интерфейс --------------------------------------------------------
+    def _interface_section(self):
+        def toggle(e):
+            self.app.data["swipe_pages"] = bool(e.control.value)
+            self.app.persist()
+            self.app.toast("Свайп страниц включён" if e.control.value
+                           else "Свайп страниц выключен")
+
+        return W.card(
+            ft.Column([
+                W.section_title("Интерфейс"),
+                ft.Row([
+                    ft.Switch(
+                        value=bool(self.app.data.get("swipe_pages")),
+                        on_change=toggle,
+                        active_color=T.ACCENT,
+                    ),
+                    ft.Column([
+                        ft.Text("Свайп между страницами", size=T.FS_BODY, color=T.TEXT),
+                        ft.Text("Листать страницы влево-вправо. Переключение мгновенное.",
+                                size=T.FS_HINT, color=T.TEXT_DIM),
+                    ], spacing=1, expand=True),
+                ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ], spacing=10),
             border=ft.border.all(1, T.BORDER),
         )

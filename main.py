@@ -1,4 +1,6 @@
 """SkipKOB_Helper — учёт прогулов в университете. Точка входа (Flet)."""
+import time
+
 import flet as ft
 
 from app.storage import load_data, save_data
@@ -6,6 +8,10 @@ from app.ui import theme as T
 from app.ui.schedule_page import SchedulePage
 from app.ui.settings_page import SettingsPage
 from app.ui.stats_page import StatsPage
+
+NAV_MS = 110          # переход по нижней панели
+SWIPE_MS = 40         # переход свайпом — практически мгновенный
+SWIPE_VELOCITY = 350  # ниже этой скорости жест не считается свайпом
 
 
 class App:
@@ -20,37 +26,31 @@ class App:
 
         self.current = 0
         self._syncing = False
+        self._last_swipe = 0.0
 
-        # Свайп между страницами — нативный (Flutter TabBarView): контент едет
-        # за пальцем в реальном времени, можно остановиться на середине.
-        # Обработка жеста на стороне Python дала бы заметную задержку.
-        # Полоса вкладок сведена к тонкому индикатору страницы сверху.
-        def slim_tab(content):
-            # Подпись пустая: полоса вкладок работает как индикатор страницы,
-            # названия и так есть в нижней панели. tab_content использовать
-            # нельзя — во Flet 0.28 он сбивает соответствие вкладки и её
-            # содержимого (вкладка 1 показывала страницу 2).
-            return ft.Tab(text=" ", content=content, height=6)
-
-        self.tabs = ft.Tabs(
-            selected_index=0,
-            animation_duration=160,
-            indicator_color=T.ACCENT,
-            indicator_thickness=3,
-            indicator_padding=ft.padding.symmetric(horizontal=24),
-            divider_color="#00000000",
-            divider_height=0,
-            label_padding=ft.padding.all(0),
-            on_change=self._on_tabs,
+        # Переключение страниц управляется здесь, а не нативным TabBarView:
+        # у него физику жеста снаружи не задать, из-за чего доводка тянулась
+        # и перехватывала следующее касание. Здесь переход мгновенный, а сам
+        # свайп можно выключить (по умолчанию выключен, включается в настройках).
+        for p in self.pages:
+            p.build()
+        self.pages_host = ft.AnimatedSwitcher(
+            content=self.stats_page.view,
+            transition=ft.AnimatedSwitcherTransition.FADE,
+            duration=NAV_MS,
+            reverse_duration=int(NAV_MS * 0.6),
+            switch_in_curve=ft.AnimationCurve.EASE_OUT,
             expand=True,
-            tabs=[
-                slim_tab(self.stats_page.build()),
-                slim_tab(self.schedule_page.build()),
-                slim_tab(self.settings_page.build()),
-            ],
         )
-
-        self.body = ft.Container(content=self.tabs, expand=True, bgcolor=T.BG)
+        self.body = ft.Container(
+            content=ft.GestureDetector(
+                content=self.pages_host,
+                on_horizontal_drag_end=self._on_swipe,
+                expand=True,
+            ),
+            expand=True,
+            bgcolor=T.BG,
+        )
         # SafeArea — чтобы контент не заезжал под строку состояния/вырез на телефоне
         self.safe_body = ft.SafeArea(content=self.body, expand=True, bottom=False)
 
@@ -79,22 +79,32 @@ class App:
             return
         self._show(self.nav.selected_index)
 
-    def _on_tabs(self, e):
-        """Смена страницы свайпом — подсвечиваем её в нижней панели."""
-        if self._syncing:
-            return
-        index = self.tabs.selected_index or 0
-        self.current = index
-        self._syncing = True
-        self.nav.selected_index = index
-        self._syncing = False
-        self.pages[index].refresh()
-        self.page.update()
+    def _on_swipe(self, e):
+        """Свайп вбок между страницами — если включён в настройках.
 
-    def _show(self, index: int):
+        Переход мгновенный: половинчатых состояний нет, поэтому следующее
+        касание не перехватывается незавершённой анимацией.
+        """
+        if not self.data.get("swipe_pages"):
+            return
+        v = getattr(e, "primary_velocity", None) or 0
+        if abs(v) < SWIPE_VELOCITY:
+            return
+        now = time.time()
+        if now - self._last_swipe < 0.25:
+            return
+        target = self.current + (1 if v < 0 else -1)
+        if not 0 <= target < len(self.pages):
+            return
+        self._last_swipe = now
+        self._show(target, duration=SWIPE_MS)
+
+    def _show(self, index: int, duration: int = NAV_MS):
         self.current = index
+        self.pages_host.duration = duration
+        self.pages_host.reverse_duration = max(1, int(duration * 0.6))
+        self.pages_host.content = self.pages[index].view
         self._syncing = True
-        self.tabs.selected_index = index
         self.nav.selected_index = index
         self._syncing = False
         self.pages[index].refresh()
