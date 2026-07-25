@@ -73,8 +73,12 @@ def main(page: ft.Page):
     page.theme = ft.Theme(color_scheme_seed=T.ACCENT, use_material3=True)
     page.bgcolor = T.BG
     page.padding = 0
+    # Приложение вертикальное (как на телефоне) — задаём портретное окно на десктопе.
+    page.window.width = 430
+    page.window.height = 900
     page.window.min_width = 360
-    page.window.min_height = 640
+    page.window.min_height = 600
+    page.window.center()
     App(page)
 
 
