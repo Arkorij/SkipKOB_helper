@@ -12,6 +12,10 @@
 <img src="https://img.shields.io/badge/Flet-0.28.3-02569B?logo=flutter&logoColor=white" alt="Flet">
 <img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows-6E56CF" alt="Platform">
 
+### [⬇ Скачать 1.1.0](https://github.com/Arkorij/SkipKOB_helper/releases/latest)
+
+APK для Android · архив для Windows
+
 </div>
 
 ---
