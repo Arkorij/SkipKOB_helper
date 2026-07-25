@@ -24,8 +24,10 @@ from . import theme as T
 from . import widgets as W
 
 
-EDGE_ZONE = 120        # высота зон-«хвостов» сверху и снизу списка
-EDGE_TRIGGER = 6       # насколько близко к самому краю нужно дотянуть
+EDGE_ZONE = 90         # высота зон-подсказок сверху и снизу списка
+OVER_TRIGGER = 75.0    # насколько нужно оттянуть список ЗА край для смены недели
+OVER_RESET = 0.4       # пауза без протягивания, после которой накопленное сбрасывается
+SWITCH_COOLDOWN = 0.9  # защита от повторного срабатывания сразу после смены
 
 
 def _status_color(pair: dict, key: str) -> str:
@@ -86,7 +88,7 @@ class SchedulePage:
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=2,
                     ),
-                    ft.Text("потяни список за край ↑↓ — смена недели",
+                    ft.Text("долистай до края и оттяни дальше — смена недели",
                             size=T.FS_HINT, color=T.TEXT_DIM),
                 ],
                 spacing=2,
@@ -136,26 +138,42 @@ class SchedulePage:
         self.refresh()
 
     def _on_scroll(self, e):
-        """Смена недели протягиванием списка за край.
+        """Смена недели: долистал до края — и намеренно оттянул дальше.
 
-        Сверху и снизу списка добавлены зоны-«хвосты» с подсказками. Список
-        после отрисовки стоит сразу под верхним хвостом, поэтому дотянуть до
-        самого края можно только намеренно — это и считается сменой недели.
-        Работает на обычных событиях прокрутки: событий overscroll от Flet
-        на Android дождаться не удалось.
+        Реагируем только на события протягивания за край. Их тип у Flet — 'over'
+        (не 'overscroll', как можно подумать), поэтому раньше обработчик молчал.
+
+        Отскок по инерции после броска тоже даёт такие события, но у них
+        заполнена velocity — их пропускаем, иначе неделя менялась бы сама.
+        Считается только протягивание пальцем, и только набрав OVER_TRIGGER
+        в одну сторону.
         """
-        px = getattr(e, "pixels", None)
-        maxe = getattr(e, "max_scroll_extent", None)
-        if px is None or maxe is None:
+        if getattr(e, "event_type", None) != "over":
             return
+        # инерционный отскок, а не намеренное протягивание
+        if abs(getattr(e, "velocity", None) or 0.0) > 0.01:
+            return
+        ov = getattr(e, "overscroll", None) or 0.0
+        if not ov:
+            return
+
         now = time.time()
-        if now - self._last_switch < 1.0:     # пауза после смены/перерисовки
+        if now - self._last_over > OVER_RESET:   # отпустили и подумали — копим заново
+            self._over_accum = 0.0
+        self._last_over = now
+        if self._over_accum * ov < 0:            # потянули в другую сторону
+            self._over_accum = 0.0
+        self._over_accum += ov
+
+        if now - self._last_switch < SWITCH_COOLDOWN:
             return
-        if maxe > EDGE_ZONE and px >= maxe - EDGE_TRIGGER:
+        if self._over_accum >= OVER_TRIGGER:     # оттянули за низ — следующая неделя
             self._last_switch = now
+            self._over_accum = 0.0
             self._change_week(1)
-        elif px <= EDGE_TRIGGER:
+        elif self._over_accum <= -OVER_TRIGGER:  # оттянули за верх — прошлая неделя
             self._last_switch = now
+            self._over_accum = 0.0
             self._change_week(-1)
 
     def _edge_hint(self, up: bool):
@@ -167,7 +185,7 @@ class SchedulePage:
                 [
                     ft.Icon(ft.Icons.KEYBOARD_ARROW_UP if up else ft.Icons.KEYBOARD_ARROW_DOWN,
                             size=22, color=T.TEXT_DIM),
-                    ft.Text("тяни дальше — прошлая неделя" if up else "тяни дальше — следующая неделя",
+                    ft.Text("оттяни вниз — прошлая неделя" if up else "оттяни вверх — следующая неделя",
                             size=T.FS_HINT, color=T.TEXT_DIM),
                 ],
                 spacing=0,
@@ -245,8 +263,9 @@ class SchedulePage:
         )
         self.list_box.content = self.days_list
         self._last_switch = time.time()   # не срабатывать сразу после перерисовки
+        self._over_accum = 0.0            # накопленное протягивание не переносим
         self._safe_update()
-        # встать сразу под верхним хвостом, чтобы он не считался краем
+        # встать сразу под верхней подсказкой, чтобы начинать с понедельника
         try:
             self.days_list.scroll_to(offset=EDGE_ZONE, duration=1)
         except Exception:
