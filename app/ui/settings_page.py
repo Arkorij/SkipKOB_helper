@@ -28,7 +28,7 @@ class SettingsPage:
             app.page.overlay.append(fp)
 
         self.year_field = ft.TextField(
-            width=120, text_size=14, border_color=T.BORDER, keyboard_type=ft.KeyboardType.NUMBER,
+            width=130, text_size=T.FS_BODY, border_color=T.BORDER, keyboard_type=ft.KeyboardType.NUMBER,
         )
         self.breaks_col = ft.Column(spacing=8)
         self.view = ft.ListView(expand=True, padding=ft.padding.all(16), spacing=18)
@@ -72,7 +72,7 @@ class SettingsPage:
             ft.Column([
                 W.section_title("Учебный год"),
                 ft.Text("Год, в котором 1 сентября. По нему строится весь календарь (недели 1–40).",
-                        size=11, color=T.TEXT_DIM),
+                        size=T.FS_HINT, color=T.TEXT_DIM),
                 ft.Row([self.year_field, W.ghost_button("Применить", apply)],
                        vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
             ], spacing=10),
@@ -85,7 +85,7 @@ class SettingsPage:
             ft.Column([
                 W.section_title("Каникулы"),
                 ft.Text("На каникулах нумерация недель не идёт. Формат дат: ГГГГ-ММ-ДД.",
-                        size=11, color=T.TEXT_DIM),
+                        size=T.FS_HINT, color=T.TEXT_DIM),
                 self.breaks_col,
                 W.ghost_button("Добавить период", self._add_break, icon=ft.Icons.ADD),
             ], spacing=10),
@@ -97,12 +97,12 @@ class SettingsPage:
         breaks = self.app.data["breaks"]
         for i, b in enumerate(breaks):
             start = ft.TextField(
-                value=b.get("start", ""), width=140, text_size=13, dense=True,
+                value=b.get("start", ""), width=150, text_size=T.FS_LABEL, dense=True,
                 border_color=T.BORDER, label="с",
                 on_blur=self._make_break_handler(i, "start"),
             )
             end = ft.TextField(
-                value=b.get("end", ""), width=140, text_size=13, dense=True,
+                value=b.get("end", ""), width=150, text_size=T.FS_LABEL, dense=True,
                 border_color=T.BORDER, label="по",
                 on_blur=self._make_break_handler(i, "end"),
             )
@@ -112,7 +112,7 @@ class SettingsPage:
                               on_click=lambda e, idx=i: self._del_break(idx)),
             ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER))
         if not breaks:
-            rows.append(ft.Text("Каникулы не заданы", size=12, color=T.TEXT_DIM, italic=True))
+            rows.append(ft.Text("Каникулы не заданы", size=T.FS_HINT, color=T.TEXT_DIM, italic=True))
         self.breaks_col.controls = rows
 
     def _make_break_handler(self, idx, field):
@@ -145,7 +145,7 @@ class SettingsPage:
                 pairs = [models.coerce_pair(x) for x in self.app.data["base_schedule"][parity][d]]
                 tf = ft.TextField(
                     value="\n".join(models.format_pair(p) for p in pairs),
-                    multiline=True, min_lines=1, max_lines=8, text_size=13,
+                    multiline=True, min_lines=1, max_lines=8, text_size=T.FS_BODY,
                     border_color=T.BORDER, label=DAY_NAMES_RU[d],
                 )
                 self.sched_fields[parity][d] = tf
@@ -195,7 +195,7 @@ class SettingsPage:
             ft.Column([
                 W.section_title("Базовое расписание"),
                 ft.Text("Пары по одной в строке. Префиксы: # — консультация, * — практика, ~ — лаб (без знака — лекция).",
-                        size=11, color=T.TEXT_DIM),
+                        size=T.FS_HINT, color=T.TEXT_DIM),
                 ft.Row([btn_odd, btn_even], spacing=8),
                 odd_col,
                 even_col,
@@ -277,7 +277,7 @@ class SettingsPage:
             ft.Column([
                 W.section_title("Опасная зона"),
                 ft.Text("Полный сброс удалит расписание, каникулы и все отметки прогулов.",
-                        size=11, color=T.TEXT_DIM),
+                        size=T.FS_HINT, color=T.TEXT_DIM),
                 ft.OutlinedButton(
                     "Полный сброс",
                     icon=ft.Icons.DELETE_FOREVER,
@@ -316,7 +316,7 @@ class SettingsPage:
             content=ft.Text(
                 "Это действие необратимо. Все отметки, расписание и каникулы будут удалены.\n"
                 "Кнопка станет активной через 3 секунды.",
-                color=T.TEXT_DIM, size=13,
+                color=T.TEXT_DIM, size=T.FS_BODY,
             ),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda ev: page.close(dlg)),
@@ -355,7 +355,7 @@ class SettingsPage:
             modal=True,
             bgcolor=T.SURFACE,
             title=ft.Text(title, color=T.TEXT),
-            content=ft.Text(message, color=T.TEXT_DIM, size=13),
+            content=ft.Text(message, color=T.TEXT_DIM, size=T.FS_BODY),
             actions=[
                 ft.TextButton("Отмена", on_click=lambda e: page.close(dlg)),
                 W.primary_button("Продолжить", yes),

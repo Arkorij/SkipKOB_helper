@@ -36,48 +36,48 @@ class SchedulePage:
         self.week: int | None = None
         self._last_switch = 0.0
 
-        self.week_label = ft.Text("", size=16, weight=ft.FontWeight.BOLD, color=T.TEXT)
+        self.week_label = ft.Text("", size=T.FS_SECTION, weight=ft.FontWeight.BOLD, color=T.TEXT)
         self.parity_badge = ft.Container(
             padding=ft.padding.symmetric(horizontal=10, vertical=4),
             border_radius=20,
         )
         self.week_dropdown = ft.Dropdown(
-            width=90,
-            text_size=13,
+            width=82,
+            text_size=T.FS_LABEL,
+            dense=True,
             border_color=T.BORDER,
             options=[ft.dropdown.Option(str(n)) for n in range(1, TOTAL_WEEKS + 1)],
             on_change=self._on_pick_week,
         )
         header = ft.Container(
-            content=ft.Row(
+            content=ft.Column(
                 [
-                    ft.Column(
+                    ft.Row(
                         [
-                            ft.Row([self.week_label, self.parity_badge], spacing=8,
+                            ft.Row([self.week_label, self.parity_badge], spacing=8, expand=True,
                                    vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                            ft.Text("свайп ↑ прошлая · ↓ следующая", size=10, color=T.TEXT_DIM),
+                            self.week_dropdown,
+                            ft.IconButton(
+                                ft.Icons.KEYBOARD_ARROW_UP,
+                                tooltip="Прошлая неделя (свайп вверх)",
+                                icon_color=T.TEXT_DIM, icon_size=22,
+                                on_click=lambda e: self._change_week(-1),
+                            ),
+                            ft.IconButton(
+                                ft.Icons.KEYBOARD_ARROW_DOWN,
+                                tooltip="Следующая неделя (свайп вниз)",
+                                icon_color=T.TEXT_DIM, icon_size=22,
+                                on_click=lambda e: self._change_week(1),
+                            ),
                         ],
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=2,
-                        expand=True,
                     ),
-                    self.week_dropdown,
-                    ft.IconButton(
-                        ft.Icons.KEYBOARD_ARROW_UP,
-                        tooltip="Прошлая неделя (свайп вверх)",
-                        icon_color=T.TEXT_DIM, icon_size=20,
-                        on_click=lambda e: self._change_week(-1),
-                    ),
-                    ft.IconButton(
-                        ft.Icons.KEYBOARD_ARROW_DOWN,
-                        tooltip="Следующая неделя (свайп вниз)",
-                        icon_color=T.TEXT_DIM, icon_size=20,
-                        on_click=lambda e: self._change_week(1),
-                    ),
+                    ft.Text("свайп ↑↓ — смена недели", size=T.FS_HINT, color=T.TEXT_DIM),
                 ],
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=2,
             ),
-            padding=ft.padding.symmetric(horizontal=14, vertical=10),
+            padding=ft.padding.only(left=14, right=6, top=10, bottom=10),
             bgcolor=T.SURFACE,
         )
 
@@ -142,7 +142,7 @@ class SchedulePage:
         self.week_label.value = f"Неделя {n}"
         odd = cal.is_odd(n)
         self.parity_badge.content = ft.Text(
-            cal.parity_label(n), size=11, weight=ft.FontWeight.BOLD, color="#10101A",
+            cal.parity_label(n), size=T.FS_CHIP, weight=ft.FontWeight.BOLD, color="#10101A",
         )
         self.parity_badge.bgcolor = T.color("AMBER_300") if odd else T.color("TEAL_300")
         self.week_dropdown.value = str(n)
@@ -170,16 +170,16 @@ class SchedulePage:
             [
                 ft.Column(
                     [
-                        ft.Text(cal.DAY_NAMES_RU[day_key], size=15, weight=ft.FontWeight.BOLD,
+                        ft.Text(cal.DAY_NAMES_RU[day_key], size=T.FS_SECTION, weight=ft.FontWeight.BOLD,
                                 color=T.ACCENT if today else T.TEXT),
-                        ft.Text(cal.format_date(d), size=11, color=T.TEXT_DIM),
+                        ft.Text(cal.format_date(d), size=T.FS_HINT, color=T.TEXT_DIM),
                     ],
                     spacing=1,
                 ),
                 ft.Row(
                     [
                         ft.Container(
-                            content=ft.Text("изменён", size=9, color="#10101A",
+                            content=ft.Text("изменён", size=T.FS_CHIP, color="#10101A",
                                             weight=ft.FontWeight.BOLD),
                             bgcolor=T.color("ORANGE_300"),
                             padding=ft.padding.symmetric(horizontal=8, vertical=3),
@@ -187,7 +187,7 @@ class SchedulePage:
                         ) if is_override else ft.Container(),
                         ft.IconButton(
                             ft.Icons.EDIT_CALENDAR_OUTLINED,
-                            icon_size=18, icon_color=T.TEXT_DIM,
+                            icon_size=22, icon_color=T.TEXT_DIM,
                             tooltip="Изменить пары этого дня",
                             on_click=lambda e, dd=d, wk=week_n: self._edit_day(dd, wk),
                         ),
@@ -203,7 +203,7 @@ class SchedulePage:
             rows = [self._pair_row(d, pairs, i, marks[i]) for i in range(len(pairs))]
             body = ft.Column(rows, spacing=10)
         else:
-            body = ft.Text("Нет пар", size=12, color=T.TEXT_DIM, italic=True)
+            body = ft.Text("Нет пар", size=T.FS_HINT, color=T.TEXT_DIM, italic=True)
 
         return W.card(
             ft.Column([header, ft.Divider(height=14, color=T.BORDER), body], spacing=6),
@@ -212,7 +212,7 @@ class SchedulePage:
 
     def _chip(self, text: str, bg: str):
         return ft.Container(
-            content=ft.Text(text, size=9, weight=ft.FontWeight.BOLD, color="#10101A"),
+            content=ft.Text(text, size=T.FS_CHIP, weight=ft.FontWeight.BOLD, color="#10101A"),
             bgcolor=bg,
             padding=ft.padding.symmetric(horizontal=8, vertical=3),
             border_radius=20,
@@ -234,13 +234,13 @@ class SchedulePage:
         )
         opts = [ft.dropdown.Option(s.key, s.label) for s in pair_statuses(pair)]
         dd = ft.Dropdown(
-            value=status_key, options=opts, dense=True, text_size=12, width=150,
+            value=status_key, options=opts, dense=True, text_size=T.FS_LABEL, width=168,
             border_color=T.BORDER,
             on_change=self._make_status_handler(d, pairs, index, dot),
         )
         name = ft.Text(
             pair_name(pair),
-            size=13, color=T.TEXT_CONS if cons else T.TEXT,
+            size=T.FS_BODY, color=T.TEXT_CONS if cons else T.TEXT,
             expand=True, no_wrap=False,
         )
         top = ft.Row(
@@ -268,7 +268,7 @@ class SchedulePage:
         pairs = resolver.pairs_for_date(data, d, week_n)
         field = ft.TextField(
             value="\n".join(models.format_pair(p) for p in pairs),
-            multiline=True, min_lines=5, max_lines=12, text_size=13,
+            multiline=True, min_lines=5, max_lines=12, text_size=T.FS_BODY,
             border_color=T.BORDER,
             label="Пары (по одной в строке)",
         )
@@ -293,11 +293,11 @@ class SchedulePage:
             modal=True,
             bgcolor=T.SURFACE,
             title=ft.Text(f"{cal.DAY_NAMES_RU[cal.DAYS[d.weekday()]]}, {cal.format_date(d)}",
-                          color=T.TEXT, size=16),
+                          color=T.TEXT, size=T.FS_SECTION),
             content=ft.Container(
                 content=ft.Column([
                     ft.Text("Префиксы: # — консультация, * — практика, ~ — лаб (без знака — лекция)",
-                            size=10, color=T.TEXT_DIM),
+                            size=T.FS_HINT, color=T.TEXT_DIM),
                     field,
                 ], spacing=8, tight=True),
                 width=360,

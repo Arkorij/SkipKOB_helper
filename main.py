@@ -19,6 +19,8 @@ class App:
         self.pages = [self.stats_page, self.schedule_page, self.settings_page]
 
         self.body = ft.Container(expand=True, bgcolor=T.BG)
+        # SafeArea — чтобы контент не заезжал под строку состояния/вырез на телефоне
+        self.safe_body = ft.SafeArea(content=self.body, expand=True, bottom=False)
 
         self.nav = ft.NavigationBar(
             selected_index=0,
@@ -35,7 +37,7 @@ class App:
             ],
         )
         page.navigation_bar = self.nav
-        page.add(self.body)
+        page.add(self.safe_body)
         self._show(0)
 
     # --- навигация --------------------------------------------------------

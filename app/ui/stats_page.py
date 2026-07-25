@@ -23,7 +23,7 @@ class StatsPage:
     def refresh(self):
         s = stats_mod.compute(self.app.data)
         self.view.controls = [
-            ft.Text("Статистика прогулов", size=20, weight=ft.FontWeight.BOLD, color=T.TEXT),
+            ft.Text("Статистика прогулов", size=T.FS_TITLE, weight=ft.FontWeight.BOLD, color=T.TEXT),
             ft.Row([
                 W.stat_card("Всего прогулов", s.total_absences, T.color("RED_300"),
                             ft.Icons.EVENT_BUSY),
@@ -53,7 +53,7 @@ class StatsPage:
             return W.card(
                 ft.Column([
                     W.section_title("Причины прогулов"),
-                    ft.Text("Пока нет прогулов", size=12, color=T.TEXT_DIM, italic=True),
+                    ft.Text("Пока нет прогулов", size=T.FS_HINT, color=T.TEXT_DIM, italic=True),
                 ], spacing=8),
                 border=ft.border.all(1, T.BORDER),
             )
@@ -66,11 +66,11 @@ class StatsPage:
             pct = round(cnt / total * 100)
             sections.append(ft.PieChartSection(
                 value=cnt, title=f"{pct}%", color=col, radius=55,
-                title_style=ft.TextStyle(size=11, color="#10101A", weight=ft.FontWeight.BOLD),
+                title_style=ft.TextStyle(size=T.FS_CHIP, color="#10101A", weight=ft.FontWeight.BOLD),
             ))
             legend.append(ft.Row([
                 ft.Container(width=12, height=12, border_radius=6, bgcolor=col),
-                ft.Text(f"{st.label} — {cnt}", size=12, color=T.TEXT),
+                ft.Text(f"{st.label} — {cnt}", size=T.FS_LABEL, color=T.TEXT),
             ], spacing=8))
         chart = ft.PieChart(sections=sections, sections_space=2,
                             center_space_radius=30, height=180, expand=True)
@@ -120,7 +120,7 @@ class StatsPage:
         filled = max(1, cnt)
         return ft.Row(
             [
-                ft.Container(height=14, bgcolor=color, border_radius=8, expand=filled),
+                ft.Container(height=16, bgcolor=color, border_radius=8, expand=filled),
                 ft.Container(expand=max(1, total - filled)),
             ],
             expand=True, spacing=0,
@@ -133,19 +133,19 @@ class StatsPage:
         for subj, cnt in items:
             rows.append(ft.Row([
                 ft.Container(
-                    content=ft.Text(subj, size=12, color=T.TEXT, no_wrap=True,
+                    content=ft.Text(subj, size=T.FS_LABEL, color=T.TEXT, no_wrap=True,
                                     overflow=ft.TextOverflow.ELLIPSIS),
-                    width=120,
+                    width=128,
                 ),
                 self._bar_track(cnt, maxv),
-                ft.Text(str(cnt), size=14, weight=ft.FontWeight.BOLD, color=T.TEXT, width=26,
+                ft.Text(str(cnt), size=T.FS_BODY, weight=ft.FontWeight.BOLD, color=T.TEXT, width=30,
                         text_align=ft.TextAlign.RIGHT),
-            ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER, height=24))
+            ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER, height=30))
         return ft.Column(rows, spacing=8)
 
     def _kind_chip(self, kind: str):
         return ft.Container(
-            content=ft.Text(models.kind_short(kind), size=9, weight=ft.FontWeight.BOLD,
+            content=ft.Text(models.kind_short(kind), size=T.FS_CHIP, weight=ft.FontWeight.BOLD,
                             color="#10101A"),
             bgcolor=T.color(models.kind_color(kind)),
             padding=ft.padding.symmetric(horizontal=7, vertical=3),
@@ -169,23 +169,23 @@ class StatsPage:
         for subj, kind, cnt in entries:
             rows.append(ft.Row([
                 ft.Container(
-                    content=ft.Text(subj, size=12, color=T.TEXT, no_wrap=True,
+                    content=ft.Text(subj, size=T.FS_LABEL, color=T.TEXT, no_wrap=True,
                                     overflow=ft.TextOverflow.ELLIPSIS),
-                    width=105,
+                    width=112,
                 ),
                 self._kind_chip(kind),
                 self._bar_track(cnt, maxv),
-                ft.Text(str(cnt), size=14, weight=ft.FontWeight.BOLD, color=T.TEXT, width=26,
+                ft.Text(str(cnt), size=T.FS_BODY, weight=ft.FontWeight.BOLD, color=T.TEXT, width=30,
                         text_align=ft.TextAlign.RIGHT),
-            ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER, height=24))
+            ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER, height=30))
         return ft.Column(rows, spacing=8)
 
     def _extra_card(self, s: stats_mod.Stats):
         def line(label, value, color, icon):
             return ft.Row([
-                ft.Icon(icon, size=16, color=color),
-                ft.Text(label, size=13, color=T.TEXT_DIM, expand=True),
-                ft.Text(str(value), size=14, weight=ft.FontWeight.BOLD, color=T.TEXT),
+                ft.Icon(icon, size=18, color=color),
+                ft.Text(label, size=T.FS_BODY, color=T.TEXT_DIM, expand=True),
+                ft.Text(str(value), size=T.FS_BODY, weight=ft.FontWeight.BOLD, color=T.TEXT),
             ], spacing=8)
         return W.card(
             ft.Column([

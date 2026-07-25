@@ -20,12 +20,12 @@ def stat_card(title: str, value, accent: str, icon=None, expand=True):
             [
                 ft.Row(
                     [
-                        ft.Icon(icon, color=accent, size=18) if icon else ft.Container(),
-                        ft.Text(title, size=12, color=T.TEXT_DIM),
+                        ft.Icon(icon, color=accent, size=20) if icon else ft.Container(),
+                        ft.Text(title, size=T.FS_LABEL, color=T.TEXT_DIM),
                     ],
                     spacing=6,
                 ),
-                ft.Text(str(value), size=26, weight=ft.FontWeight.BOLD, color=T.TEXT),
+                ft.Text(str(value), size=T.FS_VALUE, weight=ft.FontWeight.BOLD, color=T.TEXT),
             ],
             spacing=4,
         ),
@@ -35,7 +35,7 @@ def stat_card(title: str, value, accent: str, icon=None, expand=True):
 
 
 def section_title(text: str):
-    return ft.Text(text, size=15, weight=ft.FontWeight.BOLD, color=T.TEXT_DIM)
+    return ft.Text(text, size=T.FS_SECTION, weight=ft.FontWeight.BOLD, color=T.TEXT_DIM)
 
 
 def primary_button(text, on_click, icon=None):
