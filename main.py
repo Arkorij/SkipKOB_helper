@@ -18,6 +18,28 @@ class App:
         self.settings_page = SettingsPage(self)
         self.pages = [self.stats_page, self.schedule_page, self.settings_page]
 
+        self.current = 0
+
+        # Вкладки «Статистика» и «Расписание» лежат рядом и ездят по горизонтали,
+        # как страницы на рельсах. Настройки открываются без анимации.
+        anim = ft.Animation(280, ft.AnimationCurve.EASE_OUT)
+        self.slide_stats = ft.Container(
+            content=self.stats_page.build(), expand=True,
+            offset=ft.Offset(0, 0), animate_offset=anim,
+        )
+        self.slide_sched = ft.Container(
+            content=self.schedule_page.build(), expand=True,
+            offset=ft.Offset(1, 0), animate_offset=anim,
+        )
+        self.slider = ft.GestureDetector(
+            content=ft.Stack(
+                [self.slide_stats, self.slide_sched],
+                expand=True, clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            ),
+            on_horizontal_drag_end=self._on_swipe,
+            expand=True,
+        )
+
         self.body = ft.Container(expand=True, bgcolor=T.BG)
         # SafeArea — чтобы контент не заезжал под строку состояния/вырез на телефоне
         self.safe_body = ft.SafeArea(content=self.body, expand=True, bottom=False)
@@ -44,9 +66,30 @@ class App:
     def _on_nav(self, e):
         self._show(self.nav.selected_index)
 
+    def _on_swipe(self, e):
+        """Свайп вбок между «Статистикой» и «Расписанием».
+
+        Порог по скорости высокий, чтобы вертикальная прокрутка меню
+        случайно не переключала вкладку.
+        """
+        v = getattr(e, "primary_velocity", None) or 0
+        if abs(v) < 400:
+            return
+        if v < 0 and self.current == 0:      # влево — к расписанию
+            self._show(1)
+        elif v > 0 and self.current == 1:    # вправо — к статистике
+            self._show(0)
+
     def _show(self, index: int):
-        page_obj = self.pages[index]
-        self.body.content = page_obj.build()
+        if index in (0, 1):
+            self.body.content = self.slider
+            self.slide_stats.offset = ft.Offset(0 if index == 0 else -1, 0)
+            self.slide_sched.offset = ft.Offset(1 if index == 0 else 0, 0)
+            self.pages[index].refresh()
+        else:
+            self.body.content = self.settings_page.build()
+        self.current = index
+        self.nav.selected_index = index
         self.page.update()
 
     # --- сервисы для страниц ---------------------------------------------

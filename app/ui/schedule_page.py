@@ -24,7 +24,7 @@ from . import theme as T
 from . import widgets as W
 
 
-OVERSCROLL_TRIGGER = 40.0   # накопленное перетягивание за край для смены недели
+OVERSCROLL_TRIGGER = 55.0   # накопленное перетягивание за край для смены недели
 
 
 def _status_color(pair: dict, key: str) -> str:
@@ -39,6 +39,7 @@ class SchedulePage:
         self.week: int | None = None
         self._last_switch = 0.0
         self._over_accum = 0.0
+        self._last_over = 0.0
 
         self.week_label = ft.Text("", size=T.FS_SECTION, weight=ft.FontWeight.BOLD, color=T.TEXT)
         self.parity_badge = ft.Container(
@@ -84,7 +85,7 @@ class SchedulePage:
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=2,
                     ),
-                    ft.Text("свайп вбок или ↑↓ у края — смена недели",
+                    ft.Text("потяни список за край ↑↓ — смена недели",
                             size=T.FS_HINT, color=T.TEXT_DIM),
                 ],
                 spacing=2,
@@ -99,14 +100,7 @@ class SchedulePage:
             padding=ft.padding.all(14),
             on_scroll=self._on_scroll,
         )
-        # Горизонтальный свайп не конфликтует с вертикальной прокруткой списка,
-        # поэтому срабатывает надёжно; вертикальный overscroll оставлен как доп. способ.
-        swipe_area = ft.GestureDetector(
-            content=self.days_list,
-            on_horizontal_drag_end=self._on_h_swipe,
-            expand=True,
-        )
-        self.view = ft.Column([header, swipe_area], expand=True, spacing=0)
+        self.view = ft.Column([header, self.days_list], expand=True, spacing=0)
 
     # --- неделя -----------------------------------------------------------
     def _ensure_week(self):
@@ -128,40 +122,31 @@ class SchedulePage:
         self._save_week()
         self.refresh()
 
-    def _on_h_swipe(self, e):
-        """Свайп вбок: влево — следующая неделя, вправо — прошлая."""
-        v = getattr(e, "primary_velocity", None) or 0
-        if abs(v) < 150:
-            return
-        now = time.time()
-        if now - self._last_switch < 0.5:
-            return
-        self._last_switch = now
-        self._change_week(1 if v < 0 else -1)
-
     def _on_scroll(self, e):
-        """Вертикальный overscroll: тянем за край списка — меняем неделю.
+        """Вертикальный overscroll у края списка — смена недели.
 
-        События overscroll приходят маленькими порциями, поэтому копим сумму
-        в одном направлении и срабатываем при заметном перетягивании.
+        События overscroll приходят маленькими порциями, поэтому копим сумму.
+        Сбрасываем накопленное только по паузе: во время перетягивания Flet
+        присылает и обычные события прокрутки вперемешку, и сброс по ним
+        обнулял бы счётчик, из-за чего смена недели не срабатывала.
         """
-        etype = getattr(e, "event_type", None)
-        if etype != "overscroll":
-            if etype in ("start", "user"):
-                self._over_accum = 0.0
+        if getattr(e, "event_type", None) != "overscroll":
             return
         now = time.time()
-        if now - self._last_switch < 0.8:
-            return
+        if now - self._last_over > 0.35:      # пауза — начинаем копить заново
+            self._over_accum = 0.0
+        self._last_over = now
         ov = getattr(e, "overscroll", 0) or 0
-        if self._over_accum * ov < 0:     # сменилось направление — копим заново
+        if self._over_accum * ov < 0:         # направление сменилось
             self._over_accum = 0.0
         self._over_accum += ov
-        if self._over_accum < -OVERSCROLL_TRIGGER:    # за верх -> прошлая неделя
+        if now - self._last_switch < 0.7:
+            return
+        if self._over_accum <= -OVERSCROLL_TRIGGER:   # за верх -> прошлая неделя
             self._last_switch = now
             self._over_accum = 0.0
             self._change_week(-1)
-        elif self._over_accum > OVERSCROLL_TRIGGER:   # за низ -> следующая неделя
+        elif self._over_accum >= OVERSCROLL_TRIGGER:  # за низ -> следующая неделя
             self._last_switch = now
             self._over_accum = 0.0
             self._change_week(1)
