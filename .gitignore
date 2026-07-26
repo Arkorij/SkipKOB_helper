@@ -2,23 +2,25 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-.pytest_cache/
 
 # Virtual envs
 .venv/
 venv/
 env/
 
-# Flet / build artifacts
+# Сборки
 build/
 dist/
 *.spec
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
 
-# App data & logs (хранятся в %APPDATA%, но на всякий случай)
+# Данные приложения и логи
 data.json
 *.log
 
-# Scratch / личные тестовые данные
+# Личные тестовые данные
 Test shed/
 
 # OS
