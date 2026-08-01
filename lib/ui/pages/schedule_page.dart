@@ -7,6 +7,7 @@ import '../../core/calendar.dart';
 import '../../core/models.dart';
 import '../../core/resolver.dart';
 import '../../core/store.dart';
+import '../status_menu.dart';
 import '../theme.dart';
 
 /// Сколько нужно оттянуть список за край, чтобы сменить неделю.
@@ -418,37 +419,14 @@ class _DayCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            SizedBox(
-              width: 168,
-              child: DropdownButtonFormField<String>(
-                value: mark.status,
-                isDense: true,
-                dropdownColor: T.surface2,
-                style: const TextStyle(fontSize: T.fsLabel, color: T.text),
-                decoration: InputDecoration(
-                  isDense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: T.border),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: T.accent),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                items: [
-                  for (final s in pair.availableStatuses)
-                    DropdownMenuItem(value: s.key, child: Text(s.label)),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setMark(state.data, day, pairs, index, value);
-                  state.persist(notify: false);
-                  onChanged();
-                },
-              ),
+            StatusField(
+              value: mark.status,
+              options: pair.availableStatuses,
+              onChanged: (value) {
+                setMark(state.data, day, pairs, index, value);
+                state.persist(notify: false);
+                onChanged();
+              },
             ),
           ]),
         ],

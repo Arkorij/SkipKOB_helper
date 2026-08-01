@@ -159,6 +159,7 @@ lib/
 │   └── store.dart               модель данных и JSON-хранилище
 └── ui/
     ├── theme.dart               палитра, размеры, общие виджеты
+    ├── status_menu.dart         поле и меню выбора статуса пары
     └── pages/
         ├── stats_page.dart      статистика
         ├── schedule_page.dart   расписание
